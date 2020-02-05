@@ -1,2 +1,2 @@
 # GOSTITCH
-gostitch is a package written to sending batch data payloads to (https://www.stitchdata.com/)[Stitch] using the Stitch Import API. The package provides the structs needed for marshaling data to Stitch-compatible JSON payloads and sending. The package utilizes the net/http for the API connection. 
+gostitch is a package written to sending batch data payloads to [https://www.stitchdata.com/](Stitch) using the Stitch Import API. The package provides the structs needed for marshaling data to Stitch-compatible JSON payloads and sending. The package utilizes the net/http for the API connection. 
