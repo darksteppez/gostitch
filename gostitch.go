@@ -1,15 +1,16 @@
-package main
+package gostitch
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
+
+// StitchAPIURL is the URL for the stitch API endpoint. NOTE: does not include trailing slash
+const StitchAPIURL = "https://api.stitchdata.com"
 
 // BatchPayload is the main payload struct used to send data to stitch's batch import API endpoint
 type BatchPayload struct {
@@ -32,13 +33,62 @@ type SingleRecord struct {
 	Data     map[string]interface{} `json:"data"`
 }
 
-func main() {
+// func main() {
 
-	payload := []byte(`[{"item": "first", "another_item": 4},{"item": "second", "another_item": 6}]`)
+// 	payload := []byte(`[{"item": "first", "another_item": 4, "floatme": 3.14},{"item": "second", "another_item": 6, "floatme": 6.02}]`)
 
+// 	messages := BuildMessages(payload)
+
+// 	schemaTraits := map[string]string{
+// 		"item":         "string",
+// 		"another_item": "integer",
+// 		"float_me":     "number",
+// 	}
+
+// 	schema := BuildSchema(schemaTraits)
+
+// 	keynames := []string{
+// 		"item",
+// 	}
+
+// 	tablename := "testlibrary"
+
+// 	jsonString := StitchBatchPayload(tablename, schema, messages, keynames)
+
+// 	os.Stdout.Write(jsonString)
+
+// 	var marshal = new(BatchPayload)
+
+// 	json.Unmarshal(jsonString, &marshal)
+
+// 	fmt.Printf("%+v\n", marshal)
+
+// 	status, response := StitchSendBatchPayload(jsonString, "63303350b58ff62bd68966a2c428b43d3cb1f0aebff944f4bd7d0e46677b869e")
+
+// 	fmt.Println(status)
+// 	fmt.Println(response)
+
+// }
+
+// BuildSchema takes in a [string]string map of data types sent in Stitch payload and returns a Schema object
+func BuildSchema(schemaTraits map[string]string) Schema {
+	properties := map[string]map[string]string{}
+	for k, v := range schemaTraits {
+		properties[k] = map[string]string{
+			"type": v,
+		}
+	}
+	schema := Schema{
+		Properties: properties,
+	}
+	return schema
+}
+
+// BuildMessages takes a JSON byte slice formatted as "key":"value" and converts it to a slice of SingleRecord structs for us in the Stitch batch payload
+func BuildMessages(jsonData []byte) []SingleRecord {
 	var bucket = []map[string]interface{}{}
 
-	err := json.Unmarshal(payload, &bucket)
+	err := json.Unmarshal(jsonData, &bucket)
 
 	if err != nil {
 		log.Fatal(err)
@@ -55,23 +105,13 @@ func main() {
 		messages = append(messages, record)
 	}
 
-	schema := Schema{
-		Properties: map[string]map[string]string{
-			"item": map[string]string{
-				"type": "string",
-			},
-			"another_item": map[string]string{
-				"type": "integer",
-			},
-		},
-	}
+	return messages
+}
 
-	keynames := []string{
-		"item",
-	}
-
+// StitchBatchPayload converts a BulkPayload struct into a JSON-formatted []byte for use in sending via POST to the stitch API
+func StitchBatchPayload(tablename string, schema Schema, messages []SingleRecord, keynames []string) []byte {
 	batchpayload := BatchPayload{
-		TableName: "test",
+		TableName: tablename,
 		Schema:    schema,
 		Messages:  messages,
 		KeyNames:  keynames,
@@ -83,29 +123,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	os.Stdout.Write(jsonString)
-
-	var marshal = new(BatchPayload)
-
-	json.Unmarshal(jsonString, &marshal)
-
-	fmt.Printf("%+v", marshal)
-}
-
-// StitchPayload converts a BulkPayload struct into a JSON-formatted []byte for use in sending via POST to the stitch API
-func StitchBatchPayload(payload BatchPayload) []byte {
-	jsonString, err := json.Marshal(payload)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	return jsonString
 }
 
 // StitchSendBatchPayload sends a POST request with a JSON-encoded payload
 func StitchSendBatchPayload(payload []byte, apiToken string) (string, string) {
-	stitch, err := http.NewRequest("POST", "https://api.stitchdata.com/v2/import/batch", bytes.NewBuffer(payload))
+	stitch, err := http.NewRequest("POST", StitchAPIURL+"/v2/import/batch", bytes.NewBuffer(payload))
 
 	if err != nil {
 		log.Fatal(err)
@@ -130,8 +153,6 @@ func StitchSendBatchPayload(payload []byte, apiToken string) (string, string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Printf("%s\n", body)
 
 	return stitchResponse.Status, string(body)
 }
