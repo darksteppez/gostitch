@@ -22,7 +22,13 @@ type BatchPayload struct {
 
 // Schema consists of several key maps that describe the structure of the SingleRecord struct's Data property
 type Schema struct {
-	Properties map[string]map[string]string `json:"properties"`
+	Properties map[string]Property `json:"properties"`
+}
+
+// Property is a struct that contains defining values for JSON schema properties
+type Property struct {
+	Type   string `json:"type"`
+	Format string `json:"format,omitempty"`
 }
 
 // SingleRecord is a single row of data that is transmitted to the API via the BatchPayload Messages property. The Data property structure should match the
@@ -33,50 +39,17 @@ type SingleRecord struct {
 	Data     map[string]interface{} `json:"data"`
 }
 
-// func main() {
-
-// 	payload := []byte(`[{"item": "first", "another_item": 4, "floatme": 3.14},{"item": "second", "another_item": 6, "floatme": 6.02}]`)
-
-// 	messages := BuildMessages(payload)
-
-// 	schemaTraits := map[string]string{
-// 		"item":         "string",
-// 		"another_item": "integer",
-// 		"float_me":     "number",
-// 	}
-
-// 	schema := BuildSchema(schemaTraits)
-
-// 	keynames := []string{
-// 		"item",
-// 	}
-
-// 	tablename := "testlibrary"
-
-// 	jsonString := StitchBatchPayload(tablename, schema, messages, keynames)
-
-// 	os.Stdout.Write(jsonString)
-
-// 	var marshal = new(BatchPayload)
-
-// 	json.Unmarshal(jsonString, &marshal)
-
-// 	fmt.Printf("%+v\n", marshal)
-
-// 	status, response := StitchSendBatchPayload(jsonString, "63303350b58ff62bd68966a2c428b43d3cb1f0aebff944f4bd7d0e46677b869e")
-
-// 	fmt.Println(status)
-// 	fmt.Println(response)
-
-// }
-
 // BuildSchema takes in a [string]string map of data types sent in Stitch payload and returns a Schema object
-func BuildSchema(schemaTraits map[string]string) Schema {
-	properties := map[string]map[string]string{}
-	for k, v := range schemaTraits {
-		properties[k] = map[string]string{
-			"type": v,
+func BuildSchema(schemaTraits []map[string]string) Schema {
+	properties := map[string]Property{}
+	for _, v := range schemaTraits {
+		property := Property{
+			Type: v["type"],
 		}
+		if v["format"] != "" {
+			property.Format = v["format"]
+		}
+		properties[v["name"]] = property
 	}
 	schema := Schema{
 		Properties: properties,
@@ -84,8 +57,8 @@ func BuildSchema(schemaTraits map[string]string) Schema {
 	return schema
 }
 
-// BuildMessages takes a JSON byte slice formatted as "key":"value" and converts it to a slice of SingleRecord structs for us in the Stitch batch payload
-func BuildMessages(jsonData []byte) []SingleRecord {
+// BuildMessageBatches takes a JSON byte slice formatted as "key":"value" and converts it to a collections of slices of SingleRecord structs for use in the Stitch batch payload
+func BuildMessageBatches(jsonData []byte, sequence int64) [][]SingleRecord {
 	var bucket = []map[string]interface{}{}
 
 	err := json.Unmarshal(jsonData, &bucket)
@@ -94,18 +67,34 @@ func BuildMessages(jsonData []byte) []SingleRecord {
 		log.Fatal(err)
 	}
 
+	var batches = [][]SingleRecord{}
 	var messages = []SingleRecord{}
+
+	batchByteSize := 0
 
 	for _, message := range bucket {
 		record := SingleRecord{
 			Action:   "upsert",
-			Sequence: time.Now().Unix(),
+			Sequence: sequence,
 			Data:     message,
 		}
+		byteMessage, _ := json.Marshal(message)
 		messages = append(messages, record)
+		batchByteSize += len(byteMessage)
+
+		// limit batch sizes to 3.9mb or 9900 records
+		if batchByteSize >= 3900000 || len(messages) >= 9900 {
+			batches = append(batches, messages)
+			batchByteSize = 0
+			messages = []SingleRecord{}
+		}
 	}
 
-	return messages
+	if len(messages) > 0 {
+		batches = append(batches, messages)
+	}
+
+	return batches
 }
 
 // StitchBatchPayload converts a BulkPayload struct into a JSON-formatted []byte for use in sending via POST to the stitch API

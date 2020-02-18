@@ -1,7 +1,6 @@
 package gostitch
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -59,7 +58,6 @@ func TestBuildSchema(t *testing.T) {
 
 	for i, traits := range testTraits {
 		testSchema := BuildSchema(traits)
-		fmt.Printf("%+v\n", testSchema)
 		if !cmp.Equal(schema[i], testSchema) {
 			t.Error("schemas do not match")
 		}
@@ -71,30 +69,32 @@ func TestBuildMessages(t *testing.T) {
 
 	var sequence int64 = time.Now().Unix()
 
-	testMessages := []SingleRecord{
-		SingleRecord{
-			Action:   "upsert",
-			Sequence: sequence,
-			Data: map[string]interface{}{
-				"item":         "first",
-				"another_item": 4.0,
-				"floatme":      3.14,
+	testMessageBatches := [][]SingleRecord{
+		[]SingleRecord{
+			SingleRecord{
+				Action:   "upsert",
+				Sequence: sequence,
+				Data: map[string]interface{}{
+					"item":         "first",
+					"another_item": 4.0,
+					"floatme":      3.14,
+				},
 			},
-		},
-		SingleRecord{
-			Action:   "upsert",
-			Sequence: sequence,
-			Data: map[string]interface{}{
-				"item":         "first",
-				"another_item": 5.0,
-				"floatme":      3.19,
+			SingleRecord{
+				Action:   "upsert",
+				Sequence: sequence,
+				Data: map[string]interface{}{
+					"item":         "first",
+					"another_item": 5.0,
+					"floatme":      3.19,
+				},
 			},
 		},
 	}
 
-	messages := BuildMessages(payloads, sequence)
+	messages := BuildMessageBatches(payloads, sequence)
 
-	if !cmp.Equal(messages, testMessages) {
+	if !cmp.Equal(messages, testMessageBatches) {
 		t.Error("Messages do not match")
 	}
 }
