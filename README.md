@@ -7,10 +7,10 @@ The package is setup to use the /v2/import/patch POST endpoint provided by Stitc
 
 To use the package you will need to generate each component of the payload including:
 
-`tablename`: the name of the table that the data will be loaded to in Stitch
-`schema`: this will be a slice of `map[string]string` that make up your data structure schema, based on [JSON schema](https://json-schema.org/)
-`messages`: this will be a slice of at least one []SingleRecord that can be ranged over when creating the batch payload
-`keynames`: a slice of strings containing the fields that should be used as keys by Stitch
+* `tablename`: the name of the table that the data will be loaded to in Stitch
+* `schema`: this will be a slice of `map[string]string` that make up your data structure schema, based on [JSON schema](https://json-schema.org/)
+* `messages`: this will be a slice of at least one []SingleRecord that can be ranged over when creating the batch payload
+* `keynames`: a slice of strings containing the fields that should be used as keys by Stitch
 
 For a full example of the usage see `example/example.go`.
 
