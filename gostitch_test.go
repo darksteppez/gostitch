@@ -128,3 +128,27 @@ func TestBatchPayloadSizeLimitSharding(t *testing.T) {
 		t.Errorf("total message batches incorrect. expecting 2 but got %v", len(messageBatches))
 	}
 }
+
+func TestBatchMessageCountLimitSharding(t *testing.T) {
+	single := map[string]interface{}{
+		"item":     "first",
+		"float_me": 4.0,
+	}
+
+	batchPayload := []map[string]interface{}{}
+
+	for i := 0; i < 20000; i++ {
+		batchPayload = append(batchPayload, single)
+	}
+
+	jsonPayload, _ := json.Marshal(batchPayload)
+
+	now := time.Now().Unix()
+
+	// stitch batch message limit is 20k but the message limit in the library is set to 19.5k. test should have len(messageBatches) == 2
+	messageBatches := BuildMessageBatches(jsonPayload, now)
+
+	if len(messageBatches) != 2 {
+		t.Errorf("total message batches incorrect. expecting 2 but got %v", len(messageBatches))
+	}
+}

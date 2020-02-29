@@ -82,8 +82,8 @@ func BuildMessageBatches(jsonData []byte, sequence int64) [][]SingleRecord {
 		messages = append(messages, record)
 		batchByteSize += len(byteMessage)
 
-		// limit batch sizes to 3.9mb
-		if batchByteSize >= 3900000 {
+		// limit batch sizes to 3.9mb or 19,500 messages
+		if batchByteSize >= 3900000 || len(messages) > 19500 {
 			batches = append(batches, messages)
 			batchByteSize = 0
 			messages = []SingleRecord{}
@@ -97,27 +97,27 @@ func BuildMessageBatches(jsonData []byte, sequence int64) [][]SingleRecord {
 	return batches
 }
 
-// StitchBatchPayload converts a BulkPayload struct into a JSON-formatted []byte for use in sending via POST to the stitch API
-func StitchBatchPayload(tablename string, schema Schema, messages []SingleRecord, keynames []string) []byte {
-	batchpayload := BatchPayload{
-		TableName: tablename,
-		Schema:    schema,
-		Messages:  messages,
-		KeyNames:  keynames,
+// stitchBatchPayload converts a BulkPayload struct into a JSON-formatted []byte for use in sending via POST to the stitch API
+func (payload *BatchPayload) stitchBatchPayload() ([]byte, error) {
+
+	jsonString, err := json.Marshal(payload)
+
+	if err != nil {
+		return []byte{}, err
 	}
 
-	jsonString, err := json.Marshal(batchpayload)
+	return jsonString, nil
+}
+
+// Send sends a POST request with a JSON-encoded payload
+func (payload *BatchPayload) Send(apiToken string) (string, map[string]string) {
+	jsonPayload, err := payload.stitchBatchPayload()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return jsonString
-}
-
-// StitchSendBatchPayload sends a POST request with a JSON-encoded payload
-func StitchSendBatchPayload(payload []byte, apiToken string) (string, map[string]string) {
-	stitch, err := http.NewRequest("POST", StitchAPIURL+"/v2/import/batch", bytes.NewBuffer(payload))
+	stitch, err := http.NewRequest("POST", StitchAPIURL+"/v2/import/batch", bytes.NewBuffer(jsonPayload))
 
 	if err != nil {
 		log.Fatal(err)
